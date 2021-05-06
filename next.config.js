@@ -1,4 +1,5 @@
 module.exports = {
+    target: 'serverless', // netlify
     webpack: (config, { isServer }) => {
         // Fixes npm packages that depend on `fs` module
         // https://github.com/vercel/next.js/issues/7755
