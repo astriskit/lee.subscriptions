@@ -1,6 +1,6 @@
-const { tmpdir, existsSync } = require('os')
+const { tmpdir } = require('os')
 const { join } = require('path')
-const { copyFile } = require('fs')
+const { copyFile, existsSync } = require('fs')
 
 let path
 if (process.env.NODE_ENV === 'development') {
