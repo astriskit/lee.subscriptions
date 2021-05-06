@@ -10,7 +10,7 @@ import {
     sanitizeString,
     ValidationError,
     getSubscriptions,
-} from '../../utils'
+} from '../../utils/server'
 
 type Params = { p?: Pagination; f?: ContainFilterUser; e?: ValidationError }
 
