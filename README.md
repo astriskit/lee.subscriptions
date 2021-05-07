@@ -1,3 +1,15 @@
+Features in summary - 
+
+1. CRUD subscriptions 
+2. To edit/update double-click the row.
+3. To delete open the edit/update modal.
+4. To create - use "+" button near the title on header.
+5. Subscription-date is auto-filled on creation or on plan-change.
+6. Expiry-date is atleast one month after the subscription-date.
+7. Filters are client-side.
+
+---
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
