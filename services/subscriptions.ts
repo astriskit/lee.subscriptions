@@ -7,7 +7,7 @@ import {
     API_PREFIX,
 } from '../utils'
 
-export const getSubscriptions = async (
+export const getSubscriptions = (
     { offset = 0, limit }: Pagination,
     f?: ContainFilterUser
 ) => {
@@ -18,4 +18,24 @@ export const getSubscriptions = async (
     return axios.get<Subscription[]>(
         `${API_PREFIX}/subscriptions?${pagination}${filter}`
     )
+}
+
+export const addSubscripton = (
+    subscription: Partial<Omit<Subscription, 'id'>>
+) => {
+    return axios.post<Subscription>(`${API_PREFIX}/subscriptions`, subscription)
+}
+
+export const editSubscription = (
+    id: string,
+    subscription: Partial<Omit<Subscription, 'id'>>
+) => {
+    return axios.put<Subscription>(`${API_PREFIX}/subscriptions`, {
+        id,
+        ...subscription,
+    })
+}
+
+export const removeSubscription = (id: string) => {
+    return axios.delete(`${API_PREFIX}/subscriptions`, { data: { id } })
 }

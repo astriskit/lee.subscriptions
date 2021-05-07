@@ -1,77 +1,34 @@
 import React from 'react'
-import { format } from 'date-fns'
-import {
-    DataGrid,
-    GridCellParams,
-    GridColDef,
-    GridValueFormatterParams,
-    GridToolbar,
-    GridRowParams,
-} from '@material-ui/data-grid'
+import { DataGrid, GridToolbar, GridRowParams } from '@material-ui/data-grid'
 import Alert, { Color } from '@material-ui/lab/Alert'
 import Grid from '@material-ui/core/Grid'
 import Snackbar from '@material-ui/core/Snackbar'
+import { Typography, withWidth, IconButton } from '@material-ui/core'
+import { Breakpoint } from '@material-ui/core/styles/createBreakpoints'
+import { addMonths } from 'date-fns'
 
-import CancelIcon from '@material-ui/icons/Cancel'
-import CheckCircleIcon from '@material-ui/icons/CheckCircle'
-// import CreateIcon from '@material-ui/icons/Create'
-// import DeleteIcon from '@material-ui/icons/Delete'
-// import EditIcon from '@material-ui/icons/Edit'
-// import SearchIcon from '@material-ui/icons/Search'
+import AddCircleIcon from '@material-ui/icons/AddCircle'
 
 import {
-    COLUMNS,
     Subscription,
     Pagination,
     ContainFilterUser,
+    Validate,
+    COLUMNS_ATTRIBS,
+    COLUMNS,
+    PLAN_TYPES,
 } from '../../utils'
-import { getSubscriptions as getSubs } from '../../services'
+import {
+    getSubscriptions as getSubs,
+    editSubscription as editSub,
+    addSubscripton as addSub,
+    removeSubscription as removeSub,
+} from '../../services'
+import { ActiveSubscriberModal } from './ActiveSubscriberModal'
 
 import styles from './ActiveSubscribersList.module.scss'
-import { Typography } from '@material-ui/core'
 
-const dtFrmt = 'dd/MM/yyyy hh:mm aa OOOO'
-
-const columns: GridColDef[] = [
-    { field: COLUMNS.USERNAME, width: 200, headerName: 'Username' },
-    { field: COLUMNS.INTERESTS, width: 300, headerName: 'Interests' },
-    {
-        field: COLUMNS.PLAN_TYPE,
-        headerName: 'Plan',
-        width: 160,
-        valueFormatter: (params: GridValueFormatterParams) =>
-            params.value.toString().toUpperCase(),
-    },
-    {
-        field: COLUMNS.ADMIRATION_POINTS,
-        type: 'number',
-        headerName: 'Admiration Type',
-        width: 160,
-        align: 'center',
-    },
-    {
-        field: COLUMNS.SUBSCRIPTION_DATE,
-        type: 'datetime',
-        headerName: 'Subscription Date',
-        width: 250,
-        valueFormatter: (params: GridValueFormatterParams) =>
-            format(Number(params.value), dtFrmt),
-    },
-    {
-        field: COLUMNS.EXPIRY_DATE,
-        headerName: 'Validity Date',
-        width: 250,
-        type: 'datetime',
-        valueFormatter: (params: GridValueFormatterParams) =>
-            format(Number(params.value), dtFrmt),
-    },
-    {
-        field: COLUMNS.IS_ACTIVE,
-        headerName: 'Active',
-        renderCell: (params: GridCellParams) =>
-            params.value ? <CheckCircleIcon /> : <CancelIcon />,
-    },
-]
+import columns from './columns'
 
 interface ActiveSubscribersListState {
     loading: boolean
@@ -83,8 +40,18 @@ interface ActiveSubscribersListState {
     }
     pages: Pagination
     filter: ContainFilterUser
+    dialog: {
+        open: boolean
+        record: Partial<Subscription>
+        editMode: boolean
+    }
+    addUpdate: {
+        record: Partial<Subscription>
+    }
 }
-interface ActiveSubscribersListProps {}
+interface ActiveSubscribersListProps {
+    width: Breakpoint
+}
 
 class ActiveSubscribersList extends React.PureComponent<
     ActiveSubscribersListProps,
@@ -105,6 +72,14 @@ class ActiveSubscribersList extends React.PureComponent<
                 limit: 100,
             },
             filter: '',
+            dialog: {
+                open: false,
+                record: {},
+                editMode: false,
+            },
+            addUpdate: {
+                record: {},
+            },
         }
     }
     setAlert = (
@@ -130,10 +105,112 @@ class ActiveSubscribersList extends React.PureComponent<
         }
     }
     rowClickHandler = (vals: GridRowParams) => {
-        const message = `The username who has the name ${vals.getValue(
-            'username'
-        )} has following interests - \n ${vals.getValue('interests')}`
-        alert(message)
+        const selected: Partial<Subscription> = {
+            id: vals.row.id as string,
+        }
+        columns.forEach(({ field }) => {
+            selected[field] = vals.getValue(field)
+        })
+        this.setState({
+            dialog: { open: true, record: selected, editMode: true },
+            addUpdate: { record: selected },
+        })
+    }
+    handleDialogClose = () => {
+        this.setState({
+            dialog: { open: false, record: {}, editMode: false },
+            addUpdate: { record: {} },
+        })
+    }
+    getFieldValue = (key: string): Validate<any> => {
+        const recValue = this.state.addUpdate.record[key]
+        const valid = COLUMNS_ATTRIBS[key]?.valid
+            ? key === COLUMNS.EXPIRY_DATE
+                ? COLUMNS_ATTRIBS[key].valid(
+                      recValue,
+                      this.state.addUpdate.record[COLUMNS.SUBSCRIPTION_DATE]
+                  )
+                : COLUMNS_ATTRIBS[key].valid(recValue)
+            : {
+                  value: recValue,
+              }
+        if (COLUMNS_ATTRIBS[key]?.format) {
+            valid.value = COLUMNS_ATTRIBS[key].format(valid.value)
+        }
+        return valid
+    }
+    setFieldValue = (key: string, value: any) => {
+        const addUpdate = this.state.addUpdate
+        this.setState<'addUpdate'>({
+            addUpdate: {
+                ...addUpdate,
+                record: { ...addUpdate.record, [key]: value },
+            },
+        })
+    }
+    handleResetRecord = () => {
+        const record = this.state.dialog.record
+        this.setState<'addUpdate'>({ addUpdate: { record } })
+    }
+    handleAddUpdateRecord = async () => {
+        try {
+            const {
+                dialog: { editMode },
+                addUpdate: {
+                    record: { id, ...record },
+                },
+            } = this.state
+            this.setState<'loading'>({ loading: true })
+            if (editMode) {
+                await editSub(id, record)
+            } else {
+                await addSub(record)
+            }
+            this.handleDialogClose()
+            this.getSubscriptions()
+        } catch (error) {
+            this.setState<'alert'>({
+                alert: {
+                    message: error?.message || 'Operation incomplete',
+                    severity: 'error',
+                    open: true,
+                },
+            })
+            this.setState<'loading'>({ loading: false })
+        }
+    }
+    createSubscription = () => {
+        const record: Partial<Subscription> = {
+            [COLUMNS.SUBSCRIPTION_DATE]: new Date().valueOf(),
+            [COLUMNS.USERNAME]: '',
+            [COLUMNS.ADMIRATION_POINTS]: 0,
+            [COLUMNS.EXPIRY_DATE]: addMonths(new Date(), 1).valueOf(),
+            [COLUMNS.PLAN_TYPE]: PLAN_TYPES.FREE_TRIAL,
+            [COLUMNS.INTERESTS]: '',
+            [COLUMNS.IS_ACTIVE]: false,
+        }
+        this.setState({
+            dialog: { record, editMode: false, open: true },
+            addUpdate: { record },
+        })
+    }
+    handleDeleteRecord = async () => {
+        try {
+            this.setState<'loading'>({ loading: true })
+            const { id } = this.state.dialog.record
+            await removeSub(id)
+            this.handleDialogClose()
+            this.getSubscriptions()
+        } catch (error) {
+            this.setState<'loading'>({ loading: false })
+            this.setState<'alert'>({
+                alert: {
+                    message: error?.message || 'Delete unsuccessful',
+                    severity: 'error',
+                    open: true,
+                },
+            })
+        }
     }
     componentDidMount() {
         this.getSubscriptions()
@@ -143,7 +220,11 @@ class ActiveSubscribersList extends React.PureComponent<
             loading: dataGridLoading,
             subscribers = [],
             alert: { open: alertOpen, severity, message },
+            dialog: { open: dialogOpen },
         } = this.state
+        const { width } = this.props
+        const components = width === 'xs' ? {} : { Toolbar: GridToolbar }
+
         return (
             <Grid
                 container
@@ -151,24 +232,39 @@ class ActiveSubscribersList extends React.PureComponent<
                 direction="column"
                 alignItems="stretch"
             >
-                <Typography
-                    variant="h6"
-                    color="primary"
-                    align="center"
-                    className={styles.title}
+                <Grid
+                    item
+                    container
+                    wrap="nowrap"
+                    justify="center"
+                    alignItems="center"
                 >
-                    :: Subscribers List ::
-                </Typography>
+                    <Typography
+                        variant="h6"
+                        color="primary"
+                        align="center"
+                        className={styles.title}
+                    >
+                        :: Subscribers List ::
+                    </Typography>
+                    <Grid item className={styles.addControl}>
+                        <IconButton
+                            color="primary"
+                            title="Create subscription"
+                            onClick={this.createSubscription}
+                        >
+                            <AddCircleIcon />
+                        </IconButton>
+                    </Grid>
+                </Grid>
                 <DataGrid
                     rows={subscribers}
                     columns={columns}
                     loading={dataGridLoading}
                     className={styles.list}
                     disableSelectionOnClick
-                    components={{
-                        Toolbar: GridToolbar,
-                    }}
-                    onRowDoubleClick={this.rowClickHandler}
+                    components={components}
+                    onRowClick={this.rowClickHandler}
                 />
                 <Snackbar
                     open={alertOpen}
@@ -179,9 +275,21 @@ class ActiveSubscribersList extends React.PureComponent<
                         {message}
                     </Alert>
                 </Snackbar>
+                <ActiveSubscriberModal
+                    loading={dataGridLoading}
+                    open={dialogOpen}
+                    onClose={this.handleDialogClose}
+                    getField={this.getFieldValue}
+                    setField={this.setFieldValue}
+                    onOk={this.handleAddUpdateRecord}
+                    onReset={this.handleResetRecord}
+                    onDelete={this.handleDeleteRecord}
+                />
             </Grid>
         )
     }
 }
 
-export { ActiveSubscribersList }
+const ActiveSubscribersListWrapped = withWidth()(ActiveSubscribersList)
+
+export { ActiveSubscribersListWrapped as ActiveSubscribersList }

@@ -1,4 +1,4 @@
-import { differenceInDays } from 'date-fns'
+import { differenceInDays, format } from 'date-fns'
 
 export interface Validate<T = undefined> {
     error?: string
@@ -24,38 +24,33 @@ export const PLAN_TYPES = {
 
 export const COLUMNS_ATTRIBS = {
     [COLUMNS.USERNAME]: {
-        valid(value: any): Validate<boolean> {
+        valid(value: any): Validate<any> {
             if (!value) {
-                return { error: 'The value must be there', value: undefined }
-            } else if (typeof value !== 'string') {
-                return { error: 'The value must be string', value: undefined }
+                return { error: 'The value must be there', value }
             } else {
-                return { value: true }
+                return { value }
             }
         },
     },
     [COLUMNS.INTERESTS]: {
         maxLength: 512,
-        valid(value: any): Validate<boolean> {
-            if (typeof value !== 'string') {
-                return { error: 'The type must be string', value: false }
-            }
-            if (value.length <= 512) {
+        valid(value: any): Validate<any> {
+            if (value.toString().length >= 512) {
                 return {
                     error:
                         'The length must be less than or equal to 512 characters',
-                    value: false,
+                    value,
                 }
             }
-            return { value: true }
+            return { value }
         },
     },
     [COLUMNS.PLAN_TYPE]: {
         enums: Object.getOwnPropertyNames(PLAN_TYPES).map(
             (key) => PLAN_TYPES[key]
         ) as string[],
-        valid(value: string): Validate<boolean> {
-            if (value.toLowerCase() in this.enums) {
+        valid(value: string): Validate<any> {
+            if (this.enums.find((val) => value.toLowerCase() === val)) {
                 return {
                     value: this.enums.find(
                         (val) => val === value.toLowerCase()
@@ -63,7 +58,7 @@ export const COLUMNS_ATTRIBS = {
                 }
             }
             return {
-                value: false,
+                value,
                 error: 'It must be one of the valid values.',
             }
         },
@@ -73,12 +68,12 @@ export const COLUMNS_ATTRIBS = {
         max: 5,
         maxPrecision: 3,
         valid(value: any): Validate<string | number> {
-            if (typeof value !== 'number') {
-                return { error: 'The value must be a number', value: NaN }
+            if (isNaN(value)) {
+                return { error: 'The value must be a number', value }
             } else if (value < this.min) {
-                return { error: 'The value must be more than zero', value: NaN }
+                return { error: 'The value must be more than zero', value }
             } else if (value > this.max) {
-                return { error: 'The value must be less than 5', value: NaN }
+                return { error: 'The value must be less than 5', value }
             } else {
                 return {
                     error: '',
@@ -92,27 +87,32 @@ export const COLUMNS_ATTRIBS = {
         description:
             'Auto filled while putting the entry or while changing the PLAN_TYPE',
         generate: () => new Date(),
+        format: (value: any) => format(new Date(value), 'yyyy-MM-dd'),
     },
     [COLUMNS.EXPIRY_DATE]: {
+        format: (value: any) => format(new Date(value), 'yyyy-MM-dd'),
         valid: (
-            expiry: Date | number,
-            subscription: Date | number
-        ): Validate<boolean> => {
-            if (differenceInDays(subscription, expiry) <= 30) {
+            expiry: Date | number | string,
+            subscription: Date | number | string
+        ): Validate<Date | number | string> => {
+            const sub = new Date(subscription)
+            const exp = new Date(expiry)
+            const valid = differenceInDays(exp, sub) <= 30
+            if (valid) {
                 return {
                     error:
                         'The expiry must be atleast 30 days from the subscription date',
-                    value: undefined,
+                    value: expiry,
                 }
             } else {
-                return { value: true }
+                return { value: expiry }
             }
         },
     },
     [COLUMNS.IS_ACTIVE]: {
         valid: (value: any): Validate<boolean> =>
             typeof value !== 'boolean'
-                ? { error: 'The value must be a true/false', value: false }
-                : { error: '', value: true },
+                ? { error: 'The value must be a true/false', value }
+                : { error: '', value },
     },
 }
