@@ -26,6 +26,7 @@ interface ActiveSubscriberModalProps {
     onReset(): void
     loading: boolean
     onDelete(): void
+    editMode: boolean
 }
 
 export const ActiveSubscriberModal = ({
@@ -36,6 +37,7 @@ export const ActiveSubscriberModal = ({
     onOk,
     loading,
     onDelete,
+    editMode
 }: ActiveSubscriberModalProps) => {
     const isBP600 = useMediaQuery('(min-width:600px')
     if (!open) return null
@@ -108,13 +110,15 @@ export const ActiveSubscriberModal = ({
                         </Typography>
                     </Grid>
                     <Grid item>
-                        <IconButton
+                        {editMode && (
+                            <IconButton
                             onClick={onDelete}
                             disabled={loading}
                             color="secondary"
-                        >
-                            <DeleteIcon />
-                        </IconButton>
+                            >
+                                <DeleteIcon />
+                            </IconButton>
+                        )}
                         <IconButton
                             onClick={onClose}
                             disabled={loading}
