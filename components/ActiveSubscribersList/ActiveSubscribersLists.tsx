@@ -220,7 +220,7 @@ class ActiveSubscribersList extends React.PureComponent<
             loading: dataGridLoading,
             subscribers = [],
             alert: { open: alertOpen, severity, message },
-            dialog: { open: dialogOpen },
+            dialog: { open: dialogOpen, editMode },
         } = this.state
         const { width } = this.props
         const components = width === 'xs' ? {} : { Toolbar: GridToolbar }
@@ -284,6 +284,7 @@ class ActiveSubscribersList extends React.PureComponent<
                     onOk={this.handleAddUpdateRecord}
                     onReset={this.handleResetRecord}
                     onDelete={this.handleDeleteRecord}
+                    editMode={editMode}
                 />
             </Grid>
         )
